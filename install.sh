@@ -73,3 +73,7 @@ echo ""
 echo "👤 Credenziali di accesso:"
 echo "    Utente: $PMA_USER"
 echo "    Password: $PMA_PASS"
+
+cd /workspaces/ApiSlimFramework && composer require slim/slim:"^4"
+
+composer require slim/psr7
