@@ -291,6 +291,14 @@
             background: var(--light);
         }
 
+        tr.detail-row {
+            cursor: pointer;
+        }
+
+        tr.detail-row:hover {
+            background: rgba(99, 102, 241, 0.12);
+        }
+
         .json-display {
             background: var(--light);
             border-left: 4px solid var(--primary);
@@ -320,6 +328,68 @@
         .empty-state h3 {
             color: var(--dark);
             margin-bottom: 8px;
+        }
+
+        .details-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(31, 41, 55, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            z-index: 999;
+        }
+
+        .details-modal.show {
+            display: flex;
+        }
+
+        .details-modal-content {
+            width: min(900px, 100%);
+            max-height: 85vh;
+            overflow: auto;
+            background: #ffffff;
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+            padding: 22px;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .results-title {
+            font-size: 1.2rem;
+            color: var(--dark);
+            font-weight: 700;
+        }
+
+        .close-results {
+            border: 1px solid var(--border);
+            background: #ffffff;
+            color: var(--dark);
+            border-radius: 8px;
+            width: 34px;
+            height: 34px;
+            cursor: pointer;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .close-results:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .detail-section + .detail-section {
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border);
         }
 
         @media (max-width: 920px) {
@@ -382,6 +452,12 @@
         </main>
     </div>
 
+    <div id="resultsModal" class="details-modal" aria-hidden="true">
+        <div class="details-modal-content" role="dialog" aria-modal="true" aria-label="Dettagli elemento">
+            <div id="resultsModalContent"></div>
+        </div>
+    </div>
+
     <script>
         const API_BASE_URL = 'https://shiny-space-bassoon-r474j6rqqv9q3pgpq-8000.app.github.dev';
         const endpoints = [
@@ -397,6 +473,19 @@
             { id: 9, name: 'Query #9', method: 'GET', path: '/9', description: 'Fornitori che forniscono rosso o verde' },
             { id: 10, name: 'Query #10', method: 'GET', path: '/10', description: 'Pezzi forniti da almeno 2 fornitori' }
         ];
+
+        const DETAIL_ENDPOINTS = {
+            fornitore: {
+                name: 'Dettaglio fornitore',
+                description: 'Dati completi del fornitore selezionato',
+                path: '/fornitore'
+            },
+            pezzo: {
+                name: 'Dettaglio pezzo',
+                description: 'Dati completi del pezzo selezionato',
+                path: '/pezzo'
+            }
+        };
 
         let activeQueryId = null;
 
@@ -438,90 +527,302 @@
 
         async function callEndpoint(endpoint) {
             const container = document.getElementById('resultsContainer');
-            container.className = '';
-            container.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <div>Caricamento risultati di ${endpoint.name}...</div>
-                </div>
-            `;
+            renderLoading(container, `Caricamento risultati di ${endpoint.name}...`);
 
             try {
-                const startTime = performance.now();
-                const response = await fetch(API_BASE_URL + endpoint.path);
-                const endTime = performance.now();
-                const data = await response.json();
-                const duration = (endTime - startTime).toFixed(2);
-
-                displayResults(endpoint, data, response.status, duration);
+                const result = await fetchJson(endpoint.path);
+                displayResults(endpoint, result.data, result.status, result.duration);
             } catch (error) {
                 displayError(endpoint, error.message);
             }
         }
 
+        async function displayDetails(detailRequests) {
+            const modalContent = document.getElementById('resultsModalContent');
+            renderLoading(modalContent, 'Caricamento dettagli...');
+
+            const modal = document.getElementById('resultsModal');
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+
+            const requests = detailRequests
+                .map(item => ({ ...item, endpoint: DETAIL_ENDPOINTS[item.type] }))
+                .filter(item => item.endpoint);
+
+            if (requests.length === 0) {
+                displayResultsModal(
+                    { name: 'Dettaglio', description: 'Nessun identificatore disponibile' },
+                    '-',
+                    { error: 'Nessun identificatore disponibile per il dettaglio' },
+                    400,
+                    '0.00'
+                );
+                return;
+            }
+
+            const results = await Promise.all(requests.map(async request => {
+                const path = `${request.endpoint.path}/${request.value}`;
+                try {
+                    const result = await fetchJson(path);
+                    return { ...request, path, ...result };
+                } catch (error) {
+                    return {
+                        ...request,
+                        path,
+                        data: { error: error.message },
+                        status: 500,
+                        duration: '0.00'
+                    };
+                }
+            }));
+
+            if (results.length === 1) {
+                const single = results[0];
+                displayResultsModal(single.endpoint, single.path, single.data, single.status, single.duration);
+                return;
+            }
+
+            displayMultipleDetailsModal(results);
+        }
+
+        async function fetchJson(path) {
+            const startTime = performance.now();
+            const response = await fetch(`${API_BASE_URL}${path}`);
+            const endTime = performance.now();
+            return {
+                data: await response.json(),
+                status: response.status,
+                duration: (endTime - startTime).toFixed(2)
+            };
+        }
+
+        function renderLoading(container, message) {
+            container.className = '';
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>${escapeHtml(message)}</div>
+                </div>
+            `;
+        }
+
         function displayResults(endpoint, data, status, duration) {
             const container = document.getElementById('resultsContainer');
+            const { rowCount, resultCount } = getResultStats(data);
+            const metaItems = [
+                { label: 'Query', value: endpoint.name },
+                { label: 'Endpoint', value: endpoint.path },
+                { label: 'Status', value: status },
+                { label: 'Tempo', value: `${duration}ms` },
+                { label: 'Righe', value: `${rowCount} ${resultCount}` }
+            ];
 
-            let content = '';
+            container.innerHTML = `
+                ${renderMeta(metaItems)}
+                ${renderStatus(status)}
+                ${renderDataContent(data, { withDetailRows: true })}
+            `;
+
+            bindDetailRows(container, data);
+        }
+
+        function displayResultsModal(endpoint, path, data, status, duration) {
+            const modal = document.getElementById('resultsModal');
+            const container = document.getElementById('resultsModalContent');
+            const { rowCount, resultCount } = getResultStats(data);
+            const metaItems = [
+                { label: 'Endpoint', value: path },
+                { label: 'Status', value: status },
+                { label: 'Tempo', value: `${duration}ms` },
+                { label: 'Righe', value: `${rowCount} ${resultCount}` }
+            ];
+
+            container.innerHTML = `
+                <div class="results-header">
+                        <div>
+                            <div class="results-title">${escapeHtml(endpoint.name || 'Dettaglio')}</div>
+                            <div style="font-size: 0.875rem; color: var(--text); opacity: 0.7; margin-top: 4px;">
+                                ${escapeHtml(endpoint.description || endpoint.name || 'Dettaglio elemento')}
+                            </div>
+                        </div>
+                        <button class="close-results" onclick="closeResults()">✕</button>
+                    </div>
+
+                ${renderMeta(metaItems)}
+                ${renderStatus(status)}
+                ${renderDataContent(data, { withDetailRows: false })}
+            `;
+
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+        }
+
+        function displayMultipleDetailsModal(results) {
+            const modal = document.getElementById('resultsModal');
+            const container = document.getElementById('resultsModalContent');
+            const totalDuration = results.reduce((total, result) => total + Number(result.duration || 0), 0).toFixed(2);
+            const globalStatus = results.every(result => result.status === 200) ? 200 : 207;
+
+            container.innerHTML = `
+                <div class="results-header">
+                    <div>
+                        <div class="results-title">Dettaglio fornitore + pezzo</div>
+                        <div style="font-size: 0.875rem; color: var(--text); opacity: 0.7; margin-top: 4px;">
+                            La riga contiene sia identificativo fornitore che identificativo pezzo
+                        </div>
+                    </div>
+                    <button class="close-results" onclick="closeResults()">✕</button>
+                </div>
+
+                ${renderMeta([
+                    { label: 'Richieste', value: `${results.length}` },
+                    { label: 'Status', value: globalStatus },
+                    { label: 'Tempo totale', value: `${totalDuration}ms` }
+                ])}
+
+                ${results.map(result => renderDetailSection(result)).join('')}
+            `;
+
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+        }
+
+        function renderDetailSection(result) {
+            const stats = getResultStats(result.data);
+            return `
+                <section class="detail-section">
+                    <div class="results-title" style="font-size: 1rem; margin-bottom: 10px;">
+                        ${escapeHtml(result.endpoint.name)}
+                    </div>
+                    ${renderMeta([
+                        { label: 'Endpoint', value: result.path },
+                        { label: 'Status', value: result.status },
+                        { label: 'Tempo', value: `${result.duration}ms` },
+                        { label: 'Righe', value: `${stats.rowCount} ${stats.resultCount}` }
+                    ])}
+                    ${renderStatus(result.status)}
+                    ${renderDataContent(result.data, { withDetailRows: false })}
+                </section>
+            `;
+        }
+
+        function getResultStats(data) {
+            return {
+                rowCount: Array.isArray(data) ? data.length : 1,
+                resultCount: Array.isArray(data) ? 'risultati' : 'risultato'
+            };
+        }
+
+        function renderMeta(items) {
+            return `
+                <div class="result-meta">
+                    ${items.map(item => `
+                        <div class="meta-item">
+                            <span class="meta-label">${escapeHtml(String(item.label))}:</span>
+                            <span class="meta-value">${escapeHtml(String(item.value))}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderStatus(status) {
+            return status === 200
+                ? '<div class="success">✓ Query eseguita con successo</div>'
+                : `<div class="error">✗ Errore nella query (Status: ${status})</div>`;
+        }
+
+        function renderDataContent(data, options = {}) {
+            const withDetailRows = options.withDetailRows === true;
+
+            if (Array.isArray(data) && data.length === 0) {
+                return '<p>Nessun risultato disponibile.</p>';
+            }
+
             if (Array.isArray(data) && data.length > 0) {
                 const keys = Object.keys(data[0]);
-                const isSimple = keys.length <= 3 && data.length <= 20;
-
-                if (isSimple) {
-                    content = `
-                        <div class="table-responsive">
-                            <table>
-                                <thead>
-                                    <tr>${keys.map(key => `<th>${escapeHtml(key)}</th>`).join('')}</tr>
-                                </thead>
-                                <tbody>
-                                    ${data.map(row => `
-                                        <tr>
+                return `
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>${keys.map(key => `<th>${escapeHtml(key)}</th>`).join('')}</tr>
+                            </thead>
+                            <tbody>
+                                ${data.map((row, index) => {
+                                    const rowClass = withDetailRows && hasDetailReference(row) ? 'detail-row' : '';
+                                    const rowIndex = withDetailRows ? ` data-row-index="${index}"` : '';
+                                    return `
+                                        <tr class="${rowClass}"${rowIndex}>
                                             ${keys.map(key => `<td>${escapeHtml(String(row[key]))}</td>`).join('')}
                                         </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
-                } else {
-                    content = `
-                        <div class="json-display">
-                            <pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>
-                        </div>
-                    `;
-                }
-            } else if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-                content = `
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            if (typeof data === 'object' && data !== null) {
+                return `
                     <div class="json-display">
                         <pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>
                     </div>
                 `;
-            } else if (Array.isArray(data) && data.length === 0) {
-                content = '<p>Nessun risultato disponibile.</p>';
-            } else {
-                content = `<p>${escapeHtml(String(data))}</p>`;
             }
 
-            const rowCount = Array.isArray(data) ? data.length : 1;
-            const resultCount = Array.isArray(data) ? 'risultati' : 'risultato';
+            return `<p>${escapeHtml(String(data))}</p>`;
+        }
 
-            container.innerHTML = `
-                <div class="result-meta">
-                    <div class="meta-item"><span class="meta-label">Query:</span><span class="meta-value">${endpoint.name}</span></div>
-                    <div class="meta-item"><span class="meta-label">Endpoint:</span><span class="meta-value">${endpoint.path}</span></div>
-                    <div class="meta-item"><span class="meta-label">Status:</span><span class="meta-value">${status}</span></div>
-                    <div class="meta-item"><span class="meta-label">Tempo:</span><span class="meta-value">${duration}ms</span></div>
-                    <div class="meta-item"><span class="meta-label">Righe:</span><span class="meta-value">${rowCount} ${resultCount}</span></div>
-                </div>
+        function getRowDetailRequests(row) {
+            if (!row || typeof row !== 'object') {
+                return [];
+            }
 
-                ${status === 200 ?
-                    '<div class="success">✓ Query eseguita con successo</div>' :
-                    `<div class="error">✗ Errore nella query (Status: ${status})</div>`
+            const keys = Object.keys(row);
+            const fidKey = keys.find(key => key.toLowerCase() === 'fid');
+            const pidKey = keys.find(key => key.toLowerCase() === 'pid');
+            const requests = [];
+
+            if (pidKey && row[pidKey] !== null && row[pidKey] !== undefined && row[pidKey] !== '') {
+                requests.push({ type: 'pezzo', value: row[pidKey] });
+            }
+
+            if (fidKey && row[fidKey] !== null && row[fidKey] !== undefined && row[fidKey] !== '') {
+                requests.push({ type: 'fornitore', value: row[fidKey] });
+            }
+
+            return requests;
+        }
+
+        function hasDetailReference(row) {
+            return getRowDetailRequests(row).length > 0;
+        }
+
+        function bindDetailRows(container, data) {
+            if (!Array.isArray(data)) {
+                return;
+            }
+
+            container.querySelectorAll('tr[data-row-index]').forEach(rowElement => {
+                const rowIndex = Number(rowElement.dataset.rowIndex);
+                const rowData = data[rowIndex];
+                const detailRequests = getRowDetailRequests(rowData);
+
+                if (detailRequests.length === 0) {
+                    return;
                 }
 
-                ${content}
-            `;
+                rowElement.addEventListener('click', () => {
+                    displayDetails(detailRequests);
+                });
+            });
+        }
+
+        function closeResults() {
+            const modal = document.getElementById('resultsModal');
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
         }
 
         function displayError(endpoint, errorMessage) {
@@ -551,6 +852,19 @@
         document.addEventListener('DOMContentLoaded', () => {
             initializeSidebar();
             document.getElementById('toggleSidebar').addEventListener('click', toggleSidebar);
+
+            const modal = document.getElementById('resultsModal');
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    closeResults();
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    closeResults();
+                }
+            });
         });
     </script>
 </body>

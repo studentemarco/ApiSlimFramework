@@ -45,6 +45,20 @@ function queryJsonResponse($response, $sql) {
     }
 }
 
+function queryJsonResponseWithParams($response, $sql, $params) {
+    try {
+        $db = Database::connect();
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return jsonResponse($response, $result);
+    } catch (PDOException $e) {
+        return errorResponse($response, 'Database error: ' . $e->getMessage(), 501);
+    } catch (Exception $e) {
+        return errorResponse($response, 'Server error: ' . $e->getMessage(), 501);
+    }
+}
+
 $app->get('/', function ($request, $response) {
     return jsonResponse($response, [
         'message' => '',
@@ -150,6 +164,14 @@ $app->get('/9', function ($request, $response) {
 
 $app->get('/10', function ($request, $response) {
     return queryJsonResponse($response, "SELECT * FROM `10`");
+});
+
+$app->get('/pezzo/{pid}', function ($request, $response, $args) {
+    return queryJsonResponseWithParams($response, "SELECT * FROM `Pezzi` WHERE pid = ?", [$args['pid']]);
+});
+
+$app->get('/fornitore/{fid}', function ($request, $response, $args) {
+    return queryJsonResponseWithParams($response, "SELECT * FROM `Fornitori` WHERE fid = ?", [$args['fid']]);
 });
 
 // Dashboard - Testare gli endpoint
