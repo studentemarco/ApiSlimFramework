@@ -29,8 +29,8 @@ echo "📝 Configurazione guidata delle credenziali"
 echo ""
 
 # Database user
-read -p "Utente database [root]: " db_user
-db_user=${db_user:-root}
+read -p "Utente database [admin]: " db_user
+db_user=${db_user:-admin}
 
 # Database password
 read -sp "Password database: " db_pass

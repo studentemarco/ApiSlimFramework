@@ -80,10 +80,14 @@ sudo service apache2 restart
 sudo a2enconf phpmyadmin
 sudo service apache2 restart
 
-echo "👤 Creazione utente MariaDB per phpMyAdmin..."
+echo "👤 Creazione utenti MariaDB..."
 sudo mariadb <<EOF
 CREATE USER IF NOT EXISTS '$PMA_USER'@'localhost' IDENTIFIED BY '$PMA_PASS';
 GRANT ALL PRIVILEGES ON *.* TO '$PMA_USER'@'localhost' WITH GRANT OPTION;
+
+CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';
+GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';
+
 FLUSH PRIVILEGES;
 EOF
 
@@ -100,6 +104,7 @@ echo ""
 echo "📦 Installazione dipendenze PHP..."
 cd "$PROJECT_DIR" && composer require slim/slim:"^4"
 composer require slim/psr7
+composer dump-autoload
 
 echo ""
 echo "💾 Creazione database..."
