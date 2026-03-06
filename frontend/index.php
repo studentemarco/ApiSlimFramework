@@ -459,7 +459,14 @@
     </div>
 
     <script>
-        const API_BASE_URL = 'https://shiny-space-bassoon-r474j6rqqv9q3pgpq-8000.app.github.dev';
+        // Rileva automaticamente l'URL dell'API
+        // In produzione, puoi impostare una variabile d'ambiente o modificare questo valore
+        const API_BASE_URL = window.location.origin.includes('github.dev') 
+            ? window.location.origin.replace(/-(\\d+)\\.app\\.github\\.dev/, '-8000.app.github.dev')
+            : (window.location.protocol + '//' + window.location.hostname + ':8000');
+        
+        console.log('API Base URL:', API_BASE_URL);
+        
         const endpoints = [
             { id: 0, name: 'Query #0', method: 'GET', path: '/0', description: 'Lista delle tabelle' },
             { id: 1, name: 'Query #1', method: 'GET', path: '/1', description: 'Pezzi con almeno un fornitore' },

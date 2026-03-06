@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# ============================================
+# CONFIGURAZIONE ApiSlimFramework
+# ============================================
+# ⚠️ QUESTO È UN FILE DI ESEMPIO! NON USARE QUESTI VALORI!
+# Copia questo file in "chiavi.sh" e sostituisci TUTTI i valori con le tue credenziali reali
+
+# --- CREDENZIALI DATABASE ---
+export DB_USER="<TUO_UTENTE_DATABASE>"
+export DB_PASS="<TUA_PASSWORD_DATABASE>"
+export DB_NAME="ApiSlimFramework"  # Puoi cambiare il nome del database
+export DB_HOST="localhost"
+
+# --- CREDENZIALI PHPMYADMIN ---
+export PMA_USER="<TUO_UTENTE_PHPMYADMIN>"
+export PMA_PASS="<TUA_PASSWORD_PHPMYADMIN>"
+
+# --- BLOWFISH SECRET (stringa casuale 32 caratteri) ---
+# Genera automaticamente con: openssl rand -base64 32
+export BLOWFISH_SECRET="<GENERA_CON_openssl_rand_base64_32>"
+
+# --- CONFIGURAZIONE API ---
+export API_PORT="8000"
+
+# ============================================
+# ISTRUZIONI:
+# 1. Copia questo file: cp chiavi.sh.example chiavi.sh
+# 2. Modifica chiavi.sh con le tue credenziali reali
+# 3. Oppure esegui: bash bootstrap.sh (configurazione guidata)
+# ============================================

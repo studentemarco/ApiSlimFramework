@@ -117,6 +117,21 @@ $app->get('/', function ($request, $response) {
                 'method' => 'GET',
                 'path' => '/10',
                 'description' => 'Pezzi forniti da almeno 2 fornitori'
+            ],
+            [
+                'method' => 'GET',
+                'path' => '/pezzo/{pid}',
+                'description' => 'Dettagli di un pezzo specifico'
+            ],
+            [
+                'method' => 'GET',
+                'path' => '/fornitore/{fid}',
+                'description' => 'Dettagli di un fornitore specifico'
+            ],
+            [
+                'method' => 'GET',
+                'path' => '/dashboard',
+                'description' => 'Dashboard per testare gli endpoint'
             ]
         ]
     ]);
