@@ -8,17 +8,17 @@ $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 
 // CORS Middleware
-$app->add(function ($request, $handler) {
-    $response = $handler->handle($request);
+$app->add(function ($request, $handler) use ($app) {
+    if (strtoupper($request->getMethod()) === 'OPTIONS') {
+        $response = $app->getResponseFactory()->createResponse(204);
+    } else {
+        $response = $handler->handle($request);
+    }
+
     return $response
         ->withHeader('Access-Control-Allow-Origin', '*')
         ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
         ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-});
-
-// Handle OPTIONS requests for CORS preflight
-$app->options('/{routes:.+}', function ($request, $response) {
-    return $response;
 });
 
 function jsonResponse($response, $data) {
@@ -40,7 +40,7 @@ function queryJsonResponse($response, $sql) {
         return jsonResponse($response, $result);
     } catch (PDOException $e) {
         return errorResponse($response, 'Database error: ' . $e->getMessage(), 501);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         return errorResponse($response, 'Server error: ' . $e->getMessage(), 501);
     }
 }
@@ -54,7 +54,7 @@ function queryJsonResponseWithParams($response, $sql, $params) {
         return jsonResponse($response, $result);
     } catch (PDOException $e) {
         return errorResponse($response, 'Database error: ' . $e->getMessage(), 501);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         return errorResponse($response, 'Server error: ' . $e->getMessage(), 501);
     }
 }
@@ -117,21 +117,6 @@ $app->get('/', function ($request, $response) {
                 'method' => 'GET',
                 'path' => '/10',
                 'description' => 'Pezzi forniti da almeno 2 fornitori'
-            ],
-            [
-                'method' => 'GET',
-                'path' => '/pezzo/{pid}',
-                'description' => 'Dettagli di un pezzo specifico'
-            ],
-            [
-                'method' => 'GET',
-                'path' => '/fornitore/{fid}',
-                'description' => 'Dettagli di un fornitore specifico'
-            ],
-            [
-                'method' => 'GET',
-                'path' => '/dashboard',
-                'description' => 'Dashboard per testare gli endpoint'
             ]
         ]
     ]);

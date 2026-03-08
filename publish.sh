@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Directory del progetto
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WWW_ROOT="/var/www/html"
 
 if [ "$1" == "--list" ]; then
@@ -38,6 +36,5 @@ fi
 LINK_NAME="$1"
 TARGET_DIR="$2"
 
-ln -s "$PROJECT_DIR/$TARGET_DIR" "$WWW_ROOT/$LINK_NAME"
+ln -s "/workspaces/ApiSlimFramework/$TARGET_DIR" "$WWW_ROOT/$LINK_NAME"
 echo "Creato link simbolico: $LINK_NAME -> $TARGET_DIR"
-echo "Path completo: $PROJECT_DIR/$TARGET_DIR"
