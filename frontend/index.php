@@ -458,8 +458,10 @@
         </div>
     </div>
 
+    
+
     <script>
-        const API_BASE_URL = window.location.origin.replace(/\/$/, '');
+        const API_BASE_URL = "https://shiny-space-bassoon-r474j6rqqv9q3pgpq-8000.app.github.dev";
         const endpoints = [
             { id: 0, name: 'Query #0', method: 'GET', path: '/0', description: 'Lista delle tabelle' },
             { id: 1, name: 'Query #1', method: 'GET', path: '/1', description: 'Pezzi con almeno un fornitore' },
